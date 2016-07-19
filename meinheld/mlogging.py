@@ -133,28 +133,28 @@ class Logger(object):
 
 
     def reopen_files(self):
-        for log in (self.error_log, self.access_log):
-            for handler in log.handlers:
-                if isinstance(handler, logging.FileHandler):
-                    handler.acquire()
-                    try:
-                        if handler.stream:
-                            handler.stream.close()
-                            handler.stream = open(handler.baseFilename,
-                                    handler.mode)
-                    finally:
-                        handler.release()
+        def _aux(handler):
+            handler.stream.close()
+            handler.stream = open(handler.baseFilename, handler.mode)
+        self._process_handlers(_reopen)
 
     def close_on_exec(self):
+        def aux(handler): 
+            _close_on_exec(handler.stream.fileno()))
+        self._process_handlers(aux)
+
+    def _process_handlers(self, func):
         for log in (self.error_log, self.access_log):
             for handler in log.handlers:
-                if isinstance(handler, logging.FileHandler):
-                    handler.acquire()
-                    try:
-                        if handler.stream:
-                            _close_on_exec(handler.stream.fileno())
-                    finally:
-                        handler.release()
+                if not isinstance(handler, logging.FileHandler):
+                    continue
+                handler.acquire()
+                try:
+                    if handler.stream:
+                        func(handler)
+                finally:
+                    handler.release()
+
 
 
     def _get_handler(self, log):
